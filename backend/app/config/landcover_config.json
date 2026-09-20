@@ -1,0 +1,51 @@
+{
+  "description": "ESA WorldCover 2021 Class to Runoff Coefficient Mapping and Semantic Labels.",
+  "source": "ESA WorldCover 10m 2021 v200",
+  "classes": {
+    "10": {
+      "label": "Tree cover",
+      "runoff_coefficient": 0.20
+    },
+    "20": {
+      "label": "Shrubland",
+      "runoff_coefficient": 0.25
+    },
+    "30": {
+      "label": "Grassland",
+      "runoff_coefficient": 0.25
+    },
+    "40": {
+      "label": "Cropland",
+      "runoff_coefficient": 0.30
+    },
+    "50": {
+      "label": "Built-up",
+      "runoff_coefficient": 0.85
+    },
+    "60": {
+      "label": "Bare / sparse vegetation",
+      "runoff_coefficient": 0.50
+    },
+    "70": {
+      "label": "Snow and ice",
+      "runoff_coefficient": 0.10
+    },
+    "80": {
+      "label": "Permanent water bodies",
+      "runoff_coefficient": 1.00
+    },
+    "90": {
+      "label": "Herbaceous wetland",
+      "runoff_coefficient": 0.40
+    },
+    "95": {
+      "label": "Mangroves",
+      "runoff_coefficient": 0.40
+    },
+    "100": {
+      "label": "Moss and lichen",
+      "runoff_coefficient": 0.20
+    }
+  },
+  "default_runoff": 0.50
+}

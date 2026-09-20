@@ -1,0 +1,22 @@
+{
+    "description": "FlowShield Offline Meteorological Fallback Scenarios. Precipitation arrays strictly defined natively simulating uniform dimensional conditions avoiding Live-API dependencies seamlessly.",
+    "location": {
+        "city": "Bengaluru",
+        "latitude": 12.9716,
+        "longitude": 77.5946
+    },
+    "scenarios": {
+        "NORMAL": {
+            "duration_hours": 12,
+            "precipitation_mm_per_hour": 15.0
+        },
+        "HEAVY": {
+            "duration_hours": 24,
+            "precipitation_mm_per_hour": 45.0
+        },
+        "EXTREME": {
+            "duration_hours": 24,
+            "precipitation_mm_per_hour": 120.0
+        }
+    }
+}
