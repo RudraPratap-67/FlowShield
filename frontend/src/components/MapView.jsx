@@ -226,8 +226,8 @@ export default function MapView({
       >
         {/* Dark Matter Carto Tile Layer */}
         <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?api_key=eyJhbGciOiJIUzI1NiJ9.eyJhIjoiYWNfNDMwYjMzNnMiLCJqdGkiOiIxYzJhZDc3NiJ9.xHTisXjpzGIXMK_ZszsnaEUVfV5dWBLiqqPM5md7g_4"
+          url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
           maxZoom={19}
         />
 
@@ -354,10 +354,10 @@ export default function MapView({
                       <h4 className="font-bold text-slate-900 text-sm m-0">{hp.name}</h4>
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${status === 'CRITICAL'
-                            ? 'bg-rose-100 text-rose-700'
-                            : status === 'WARNING'
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-emerald-100 text-emerald-700'
+                          ? 'bg-rose-100 text-rose-700'
+                          : status === 'WARNING'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-emerald-100 text-emerald-700'
                           }`}
                       >
                         {status}
