@@ -87,7 +87,8 @@ export function DrainageOverlay({
                         weight: 4,
                         fillColor: "#06b6d4",
                         fillOpacity: 0.15,
-                        dashArray: ""
+                        dashArray: "",
+                        interactive: false
                     })}
                 />
             )}
