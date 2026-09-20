@@ -121,6 +121,12 @@ function App() {
   const cellStats = getCellStats();
 
   const handleWardClick = (wardId) => {
+    if (focusedWardId === wardId) {
+      setFocusedWardId(null);
+      setFocusedBounds(null);
+      return;
+    }
+
     if (!wardsGeo) return;
     const feature = wardsGeo.features[wardId - 1]; // 1-based indexing map
     if (!feature) return;
