@@ -157,7 +157,7 @@ export function FloodMap({
       >
         {/* Premium Dark Matter Engine */}
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?api_key=eyJhbGciOiJIUzI1NiJ9.eyJhIjoiYWNfNDMwYjMzNnMiLCJqdGkiOiIxYzJhZDc3NiJ9.xHTisXjpzGIXMK_ZszsnaEUVfV5dWBLiqqPM5md7g_4"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           maxZoom={19}
         />
