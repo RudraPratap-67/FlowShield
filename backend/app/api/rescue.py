@@ -43,6 +43,7 @@ def get_rescue_plan(req: RescuePlanRequest):
     # 3. Feed exact math arrays into Rescue Optimizer
     rescue_plan = generate_rescue_plan(
         available_teams=req.available_teams,
+        config=config,
         grid=grid,
         peak_depth=res["peak_depth"],
         risk_level=res["risk_frames"][-1], # Terminal risk level represents worst state

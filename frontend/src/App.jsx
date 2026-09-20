@@ -3,6 +3,7 @@ import { Settings2, Activity, Map as MapIcon, CloudRain, Droplets, Target, Shiel
 import { FloodMap } from './components/Map/FloodMap'
 import TimelineScrubber from './components/TimelineScrubber'
 import { RescueDashboard } from './components/RescueDashboard'
+import AIEarlyWarningPanel from './components/AIEarlyWarningPanel'
 
 function App() {
   const [terrain, setTerrain] = useState(null)
@@ -19,6 +20,12 @@ function App() {
 
   const [simulation, setSimulation] = useState(null)
   const [simLoading, setSimLoading] = useState(false)
+
+  // AI State
+  const [mlPrediction, setMlPrediction] = useState(null)
+  const [mlLoading, setMlLoading] = useState(false)
+  const [mlUnavailable, setMlUnavailable] = useState(false)
+
   const [error, setError] = useState(null)
   const [dataStatus, setDataStatus] = useState(null)
 
@@ -84,6 +91,25 @@ function App() {
         scenario: simParams.scenario,
         seed: simParams.seed
       }
+
+      // Fire ML Prediction network request natively in parallel
+      setMlLoading(true);
+      setMlUnavailable(false);
+      fetch(`${apiUrl}/api/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rainfall_intensity_mm_hr: payload.rainfall_intensity_mm_hr < 0 ? 50.0 : payload.rainfall_intensity_mm_hr,
+          duration_minutes: payload.duration_minutes
+        })
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("AI forecast missing");
+          return res.json();
+        })
+        .then(data => setMlPrediction(data))
+        .catch(() => setMlUnavailable(true))
+        .finally(() => setMlLoading(false));
 
       const response = await fetch(`${apiUrl}/api/simulate`, {
         method: 'POST',
@@ -294,15 +320,53 @@ function App() {
                   {simParams.rainfallMode === 'api_forecast' ? (
                     <div className="w-full text-xs text-indigo-300 font-semibold italic bg-indigo-950/40 p-2 rounded border border-indigo-900/50">Fetching Open-Meteo Dynamic Arrays...</div>
                   ) : (
-                    <input type="range" min="0" max="250" value={simParams.rainfall} onChange={e => setSimParams({ ...simParams, rainfall: Number(e.target.value) })} className="w-full accent-cyan-500" />
+                    <input type="range" min="0" max="350" value={simParams.rainfall} onChange={e => setSimParams({ ...simParams, rainfall: Number(e.target.value) })} className="w-full accent-cyan-500" />
                   )}
                 </div>
 
                 <div>
-                  <label className="text-sm font-semibold text-slate-300 flex justify-between mb-2">
-                    Duration <span className="text-indigo-400 bg-indigo-950/50 border border-indigo-800/50 px-2 py-0.5 rounded text-xs">{simParams.duration} mins</span>
-                  </label>
-                  <input type="range" min="30" max="360" step="30" value={simParams.duration} onChange={e => setSimParams({ ...simParams, duration: Number(e.target.value) })} className="w-full accent-indigo-500" />
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-semibold text-slate-300 flex items-center">
+                      Duration
+                    </label>
+                    <select
+                      value={simParams.durationPreset || 'custom'}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === 'custom') {
+                          setSimParams({ ...simParams, durationPreset: 'custom' })
+                        } else {
+                          let newDt = 5;
+                          const dur = Number(val);
+                          if (dur >= 10080) newDt = 60; // 1 hr steps for week+
+                          else if (dur >= 1440) newDt = 15; // 15m steps for days
+                          setSimParams({ ...simParams, durationPreset: val, duration: dur, dt: newDt })
+                        }
+                      }}
+                      className="bg-slate-900 border border-slate-700 text-xs px-2 py-1 rounded text-slate-300 outline-none hover:bg-slate-800 transition"
+                    >
+                      <option value="custom">Custom (Mins)</option>
+                      <option value="1440">1 Day (24h)</option>
+                      <option value="4320">3 Days (72h)</option>
+                      <option value="10080">1 Week (168h)</option>
+                      <option value="20160">2 Weeks (336h)</option>
+                    </select>
+                  </div>
+
+                  {simParams.durationPreset === 'custom' || !simParams.durationPreset ? (
+                    <>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Timeframe</span>
+                        <span className="text-indigo-400 bg-indigo-950/50 border border-indigo-800/50 px-2 py-0.5 rounded text-xs">{simParams.duration} mins</span>
+                      </div>
+                      <input type="range" min="30" max="1440" step="30" value={simParams.duration} onChange={e => setSimParams({ ...simParams, duration: Number(e.target.value), durationPreset: 'custom', dt: e.target.value > 720 ? 15 : 5 })} className="w-full accent-indigo-500" />
+                    </>
+                  ) : (
+                    <div className="w-full text-xs flex justify-between items-center text-indigo-300 font-semibold bg-indigo-950/40 p-2 rounded border border-indigo-900/50">
+                      <span>Extended Long-Term Prediction</span>
+                      <span className="text-white bg-indigo-600/50 px-2 py-0.5 rounded">{simParams.duration / 1440} {simParams.duration === 1440 ? 'Day' : 'Days'}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
@@ -395,7 +459,7 @@ function App() {
                   Available Response Teams <span className="text-blue-400 bg-blue-950/50 border border-blue-800/50 px-2 py-0.5 rounded text-xs">{availableTeams} Teams</span>
                 </label>
                 <input
-                  type="range" min="1" max="15" step="1"
+                  type="range" min="1" max="50" step="1"
                   value={availableTeams}
                   onChange={e => {
                     const v = Number(e.target.value);
@@ -408,12 +472,30 @@ function App() {
               <RescueDashboard rescuePlan={rescuePlan} loading={rescueLoading} />
             </div>
           ) : (
-            <>
+            <div className="flex flex-col flex-1 divide-y divide-slate-800">
+
+              {/* AI SURROGATE FORECAST - Hidded temporarily at user request */}
+              {/* {(mlLoading || mlPrediction || mlUnavailable) && (
+                 <div className="flex-shrink-0">
+                   <AIEarlyWarningPanel 
+                     prediction={mlPrediction} 
+                     isGenerating={mlLoading} 
+                     isUnavailable={mlUnavailable} 
+                     wardDict={wardDict}
+                     onZoneClick={handleWardClick}
+                   />
+                 </div>
+              )} */}
+
+              {/* PHYSICAL SIMULATION */}
               {simulation && (
-                <div className="p-5 border-b border-slate-800/50 bg-slate-950/30">
-                  <h3 className="text-md font-bold flex items-center mb-4 uppercase tracking-wide text-slate-300">
-                    <ShieldAlert className="w-5 h-5 mr-2 text-red-500" /> Disaster Summary
-                  </h3>
+                <div className="p-5 bg-slate-950/30">
+                  <div className="flex flex-col mb-4">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 text-emerald-500" /> Physical Simulation
+                    </h3>
+                    <span className="text-[10px] text-slate-500 uppercase mt-0.5">Deterministic Grid Engine</span>
+                  </div>
 
                   {(() => {
                     const currentSnapshot = simulation.frames[currentFrame];
@@ -431,7 +513,7 @@ function App() {
                     }
 
                     return (
-                      <div className="space-y-4">
+                      <div className="space-y-4 flex-1">
                         <div className="bg-slate-800/50 p-3 rounded shadow-sm border border-slate-700/50 transition-colors">
                           <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Peak Map Depth (Live)</p>
                           <p className="text-2xl font-black text-cyan-400 leading-none">{liveMaxDepth.toFixed(2)}m</p>
@@ -487,8 +569,8 @@ function App() {
               )}
 
               <div className="p-5 flex-1">
-                <h3 className="text-md font-bold flex items-center mb-4 uppercase tracking-wide text-slate-300">
-                  <Target className="w-5 h-5 mr-2 text-cyan-500" /> Inspector
+                <h3 className="text-xs font-bold flex items-center mb-4 uppercase tracking-widest text-slate-400">
+                  <Target className="w-4 h-4 mr-2 text-cyan-500" /> Inspector
                 </h3>
 
                 {!cellStats ? (
@@ -529,7 +611,7 @@ function App() {
                   </div>
                 )}
               </div>
-            </>
+            </div>
           )}
         </aside>
       </main>
