@@ -74,7 +74,7 @@ export function FloodMap({
 
   const [selectedCell, setSelectedCell] = useState(null);
 
-  const bbox = cityData?.config ? {
+  const bbox = React.useMemo(() => cityData?.config ? {
     south: cityData.config.latitude_min,
     north: cityData.config.latitude_max,
     west: cityData.config.longitude_min,
@@ -84,17 +84,17 @@ export function FloodMap({
     north: 12.98,
     west: 77.62,
     east: 77.72,
-  };
+  }, [cityData?.config]);
 
-  const center = [
+  const center = React.useMemo(() => [
     (bbox.south + bbox.north) / 2,
     (bbox.west + bbox.east) / 2,
-  ];
+  ], [bbox.south, bbox.north, bbox.west, bbox.east]);
 
-  const bounds = [
+  const bounds = React.useMemo(() => [
     [bbox.south, bbox.west],
     [bbox.north, bbox.east],
-  ];
+  ], [bbox.south, bbox.north, bbox.west, bbox.east]);
 
   const handleCellClick = ({ lat, lng, row, col }) => {
     let currentDepth = 0.0;

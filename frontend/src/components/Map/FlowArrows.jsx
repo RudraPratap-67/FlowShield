@@ -89,6 +89,13 @@ export function FlowArrows({ bbox, currentFrame, visible }) {
                     ctx.moveTo(endX, endY);
                     ctx.lineTo(endX - 4 * Math.cos(angle - Math.PI / 6), endY - 4 * Math.sin(angle - Math.PI / 6));
                     ctx.lineTo(endX - 4 * Math.cos(angle + Math.PI / 6), endY - 4 * Math.sin(angle + Math.PI / 6));
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (magnitude > 0.0001) {
+                    // Static / very slow fluid dot
+                    ctx.fillStyle = "rgba(14, 165, 233, 0.4)";
+                    ctx.beginPath();
+                    ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
                     ctx.fill();
                 }
             }
