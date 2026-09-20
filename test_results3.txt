@@ -1,0 +1,46 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.6, pytest-9.0.3, pluggy-1.6.0
+rootdir: C:\Users\Razaid\Desktop\Coding Projects\Pentagram Hackathon\flowshield\backend
+plugins: anyio-4.12.1
+collected 3 items
+
+tests\test_rescue.py F..                                                 [100%]
+
+================================== FAILURES ===================================
+________________________ test_rescue_allocation_limits ________________________
+
+    def test_rescue_allocation_limits():
+        grid = MockGrid()
+        # Create two disconnected flood zones
+        # Zone 1
+        grid.population[10:15, 10:15] = 100
+        # Zone 2
+        grid.population[30:35, 30:35] = 500 # higher pop, higher priority
+    
+        peak_depth = np.zeros((50, 50))
+        peak_depth[10:15, 10:15] = 0.5
+        peak_depth[30:35, 30:35] = 0.8
+    
+        risk_level = np.zeros((50, 50))
+        risk_level[10:15, 10:15] = 2
+        risk_level[30:35, 30:35] = 2
+    
+        time_to_critical = np.ones((50, 50)) * 120
+        time_to_critical[30:35, 30:35] = 10 # very urgent
+    
+        # Test 1 team available
+        plan_1 = generate_rescue_plan(1, grid, peak_depth, risk_level, time_to_critical)
+        assert plan_1.teams_assigned == 1
+        assert len(plan_1.assignments) == 1
+        assert plan_1.unassigned_high_priority_zones == 1
+    
+        # The assigned zone should be Zone 2 (higher pop, higher severity, higher urgency)
+>       assert plan_1.assignments[0].estimated_affected_population == 12500 # 5x5 * 500
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 3000.0 == 12500
+E        +  where 3000.0 = RescueAssignment(team_id='T-01', zone_id='RZ-002', deployment_lat=12.942, deployment_lon=77.564, estimated_travel_dist...tion (12500). Extremely short time to critical event. Deployment point secured on nearby terrain 0.7km from centroid.').estimated_affected_population
+
+tests\test_rescue.py:47: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_rescue.py::test_rescue_allocation_limits - AssertionError: ...
+========================= 1 failed, 2 passed in 0.99s =========================

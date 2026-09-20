@@ -14,6 +14,7 @@ import {
 import { DrainageOverlay } from "./DrainageOverlay";
 import { FlowArrows } from "./FlowArrows";
 import { RiskOverlay } from "./RiskOverlay";
+import { RescueOverlay } from "./RescueOverlay";
 import { coordToGrid, getRiskClass } from "../../utils/mapUtils";
 import { Info, X, Layers } from "lucide-react";
 
@@ -61,6 +62,8 @@ export function FloodMap({
   focusedBounds,
   focusedWardId,
   onWardClick,
+  rescuePlan,
+  showRescue,
 }) {
   activeLayers = {
     floodDepth: true,
@@ -192,6 +195,11 @@ export function FloodMap({
           showWards={activeLayers.wards}
           focusedWardId={focusedWardId}
           onWardClick={onWardClick}
+        />
+
+        <RescueOverlay
+          rescuePlan={rescuePlan}
+          visible={showRescue}
         />
 
         <MapClickHandler

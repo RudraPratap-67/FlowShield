@@ -1,0 +1,21 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.6, pytest-9.0.3, pluggy-1.6.0
+rootdir: C:\Users\Razaid\Desktop\Coding Projects\Pentagram Hackathon\flowshield
+plugins: anyio-4.12.1
+collected 0 items / 1 error
+
+=================================== ERRORS ====================================
+________________ ERROR collecting backend/tests/test_rescue.py ________________
+ImportError while importing test module 'C:\Users\Razaid\Desktop\Coding Projects\Pentagram Hackathon\flowshield\backend\tests\test_rescue.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+..\..\..\..\anaconda3\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend\tests\test_rescue.py:3: in <module>
+    from app.simulation.rescue import generate_rescue_plan, RescuePlan
+E   ModuleNotFoundError: No module named 'app'
+=========================== short test summary info ===========================
+ERROR backend/tests/test_rescue.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+============================== 1 error in 0.37s ===============================

@@ -13,10 +13,11 @@ app.add_middleware(
 
 from .simulation.grid import build_synthetic_city, validate_grid
 from app.data.pipeline import build_real_city
-from .api import simulation, data
+from .api import simulation, data, rescue
 
 app.include_router(simulation.router, prefix="/api", tags=["simulation"])
 app.include_router(data.router, prefix="/api", tags=["data"])
+app.include_router(rescue.router, prefix="/api/rescue", tags=["rescue"])
 from fastapi.staticfiles import StaticFiles
 import os
 

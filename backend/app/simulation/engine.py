@@ -79,6 +79,9 @@ def simulate(
     initial_vol = np.sum(h)
     
     time_to_critical = np.full((H, W), np.nan)
+    time_to_warning = np.full((H, W), np.nan)
+    peak_depth = np.copy(h)
+    peak_time_hr = np.zeros((H, W))
     
     depth_frames = []
     risk_frames = []
@@ -178,6 +181,15 @@ def simulate(
         # 4. State & Risk Evaluation
         current_time_hr += dt_hr
         
+        # Peak Depth Tracking
+        is_new_peak = h > peak_depth
+        peak_depth[is_new_peak] = h[is_new_peak]
+        peak_time_hr[is_new_peak] = current_time_hr
+        
+        # Warning Tracking
+        newly_warning = (h >= params.warning_threshold) & np.isnan(time_to_warning) & (~grid.lake_mask)
+        time_to_warning[newly_warning] = current_time_hr
+        
         # Only mutate newly critical indices keeping earliest TTC locked.
         newly_critical = (h >= params.critical_threshold) & np.isnan(time_to_critical) & (~grid.lake_mask)
         time_to_critical[newly_critical] = current_time_hr
@@ -209,6 +221,9 @@ def simulate(
             "magnitude": v_mag_frames
         },
         "time_to_critical": time_to_critical,
+        "time_to_warning": time_to_warning,
+        "peak_depth": peak_depth,
+        "peak_time_hr": peak_time_hr,
         "mass_balance": mb,
         "summary_statistics": {
             "max_depth": float(np.max(h)),

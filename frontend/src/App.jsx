@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Settings2, Activity, Map as MapIcon, CloudRain, Droplets, Target, ShieldAlert } from 'lucide-react'
 import { FloodMap } from './components/Map/FloodMap'
 import TimelineScrubber from './components/TimelineScrubber'
+import { RescueDashboard } from './components/RescueDashboard'
 
 function App() {
   const [terrain, setTerrain] = useState(null)
@@ -36,6 +37,11 @@ function App() {
   const [wardsGeo, setWardsGeo] = useState(null)
   const [focusedBounds, setFocusedBounds] = useState(null)
   const [focusedWardId, setFocusedWardId] = useState(null)
+
+  const [showRescue, setShowRescue] = useState(false)
+  const [rescuePlan, setRescuePlan] = useState(null)
+  const [rescueLoading, setRescueLoading] = useState(false)
+  const [availableTeams, setAvailableTeams] = useState(5)
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -93,12 +99,51 @@ function App() {
       setSimulation(data)
       setCurrentFrame(0)
       setIsPlaying(true)
+
+      // Auto-fetch rescue plan if tab is open
+      if (showRescue) {
+        fetchRescuePlan(data, availableTeams);
+      }
     } catch (err) {
       setError(err.message)
     } finally {
       setSimLoading(false)
     }
-  }, [apiUrl, simParams])
+  }, [apiUrl, simParams, showRescue, availableTeams])
+
+  const fetchRescuePlan = async (simData, teams) => {
+    setRescueLoading(true);
+    try {
+      const payload = {
+        available_teams: Number(teams),
+        rainfall_intensity_mm_hr: simParams.rainfallMode === 'api_forecast' ? -1.0 : Number(simParams.rainfall),
+        duration_minutes: Number(simParams.duration),
+        dt_minutes: Number(simParams.dt)
+      };
+
+      const res = await fetch(`${apiUrl}/api/rescue/plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error("Rescue formulation failed");
+      const data = await res.json();
+      setRescuePlan(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRescueLoading(false);
+    }
+  };
+
+  const handleToggleRescue = () => {
+    const next = !showRescue;
+    setShowRescue(next);
+    if (next && simulation) {
+      fetchRescuePlan(simulation, availableTeams);
+    }
+  };
 
   const getCellStats = () => {
     if (!selectedCell || !terrain) return null;
@@ -119,6 +164,46 @@ function App() {
   }
 
   const cellStats = getCellStats();
+
+  // Precompute a synthetic "peak frame" for the Peak Extent view mode
+  const peakFrame = useMemo(() => {
+    if (!simulation?.frames?.length) return null;
+    const height = simulation.frames[0].depth.length;
+    const width = simulation.frames[0].depth[0].length;
+
+    // Initialize empty matrices
+    const maxDepth = Array.from({ length: height }, () => new Float32Array(width));
+    const maxRisk = Array.from({ length: height }, () => new Int32Array(width));
+
+    let maxOverallDepth = 0;
+
+    // Scan all frames and track historical maximums
+    for (let f = 0; f < simulation.frames.length; f++) {
+      const frame = simulation.frames[f];
+      for (let r = 0; r < height; r++) {
+        for (let c = 0; c < width; c++) {
+          if (frame.depth[r][c] > maxDepth[r][c]) {
+            maxDepth[r][c] = frame.depth[r][c];
+          }
+          if (frame.risk[r][c] > maxRisk[r][c]) {
+            maxRisk[r][c] = frame.risk[r][c];
+          }
+        }
+      }
+    }
+
+    // Convert Float32Array back to regular arrays for RiskOverlay component
+    const formattedDepth = maxDepth.map(row => Array.from(row));
+    const formattedRisk = maxRisk.map(row => Array.from(row));
+
+    return {
+      time_minutes: simulation.summary.time_to_first_critical_minutes || 0,
+      depth: formattedDepth,
+      risk: formattedRisk,
+      // No realistic peak flow vector can be aggregated visually
+      flow: { vx: Array.from({ length: height }, () => Array(width).fill(0)), vy: Array.from({ length: height }, () => Array(width).fill(0)) }
+    };
+  }, [simulation]);
 
   const handleWardClick = (wardId) => {
     if (focusedWardId === wardId) {
@@ -242,7 +327,7 @@ function App() {
               </div>
             </div>
           </aside>
-        ), [simParams, setSimParams, runSimulation, simLoading, dataStatus])}
+        ), [simParams, setSimParams, runSimulation, simLoading, dataStatus, availableTeams])}
 
         {/* CENTER: Maps & Sliders */}
         <section className="flex-1 flex flex-col relative bg-slate-950">
@@ -262,13 +347,15 @@ function App() {
               <button onClick={() => setShowSecondaryDrains(!showSecondaryDrains)} className={`px-3 py-1.5 text-[10px] uppercase font-bold rounded-md transition-colors border ${showSecondaryDrains ? 'bg-teal-900/50 text-teal-300 border-teal-700 shadow-inner' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Secondary SWD</button>
               <div className="w-px h-6 bg-slate-700 self-center mx-2"></div>
               <button onClick={() => setShowWards(!showWards)} className={`px-3 py-1.5 text-[10px] uppercase font-bold rounded-md transition-colors border ${showWards ? 'bg-amber-900/50 text-amber-300 border-amber-700 shadow-inner' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Ward Limits</button>
+              <div className="w-px h-6 bg-slate-700 self-center mx-2"></div>
+              <button onClick={handleToggleRescue} className={`px-3 py-1.5 text-[10px] uppercase font-bold rounded-md transition-colors border ${showRescue ? 'bg-blue-900/50 text-blue-300 border-blue-700 shadow-inner shadow-blue-500/20' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Rescue Teams</button>
             </div>
           </div>
 
           <div className="flex-1 relative z-0">
             <FloodMap
               cityData={terrain}
-              currentFrame={simulation?.frames[currentFrame]}
+              currentFrame={showPeakView ? peakFrame : simulation?.frames[currentFrame]}
               simulationResult={simulation}
               activeLayers={{
                 floodDepth: !showRisk,
@@ -283,6 +370,8 @@ function App() {
               focusedWardId={focusedWardId}
               onCellClick={(cellData) => setSelectedCell(cellData)}
               onWardClick={handleWardClick}
+              rescuePlan={rescuePlan}
+              showRescue={showRescue}
             />
           </div>
 
@@ -299,99 +388,152 @@ function App() {
         {/* RIGHT: Early Warning Panel */}
         <aside className="w-full md:w-72 lg:w-80 bg-slate-900/80 backdrop-blur-md border-l border-slate-800 shadow-xl overflow-y-auto flex-shrink-0 flex flex-col z-10">
 
-          {simulation && (
-            <div className="p-5 border-b border-slate-800/50 bg-slate-950/30">
-              <h3 className="text-md font-bold flex items-center mb-4 uppercase tracking-wide text-slate-300">
-                <ShieldAlert className="w-5 h-5 mr-2 text-red-500" /> Disaster Summary
-              </h3>
-              <div className="space-y-4">
-                <div className="bg-slate-800/50 p-3 rounded shadow-sm border border-slate-700/50">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Peak Map Depth</p>
-                  <p className="text-2xl font-black text-cyan-400 leading-none">{simulation.summary.max_depth_m.toFixed(2)}m</p>
-                </div>
+          {showRescue ? (
+            <div className="flex flex-col h-full">
+              <div className="p-5 border-b border-slate-800/50 bg-slate-950/30">
+                <label className="text-sm font-semibold text-slate-300 flex justify-between mb-2">
+                  Available Response Teams <span className="text-blue-400 bg-blue-950/50 border border-blue-800/50 px-2 py-0.5 rounded text-xs">{availableTeams} Teams</span>
+                </label>
+                <input
+                  type="range" min="1" max="15" step="1"
+                  value={availableTeams}
+                  onChange={e => {
+                    const v = Number(e.target.value);
+                    setAvailableTeams(v);
+                    if (simulation) fetchRescuePlan(simulation, v);
+                  }}
+                  className="w-full accent-blue-500"
+                />
+              </div>
+              <RescueDashboard rescuePlan={rescuePlan} loading={rescueLoading} />
+            </div>
+          ) : (
+            <>
+              {simulation && (
+                <div className="p-5 border-b border-slate-800/50 bg-slate-950/30">
+                  <h3 className="text-md font-bold flex items-center mb-4 uppercase tracking-wide text-slate-300">
+                    <ShieldAlert className="w-5 h-5 mr-2 text-red-500" /> Disaster Summary
+                  </h3>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-800/50 p-3 rounded shadow-sm border border-slate-700/50">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Critical Cells</p>
-                    <p className="text-xl font-black text-red-500 leading-none">{simulation.summary.critical_cells}</p>
-                  </div>
-                  <div className="bg-slate-800/50 p-3 rounded shadow-sm border border-slate-700/50">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Time to Danger</p>
-                    <p className="text-xl font-black text-indigo-300 leading-none">
-                      {simulation.summary.time_to_first_critical_minutes ? `${simulation.summary.time_to_first_critical_minutes}m` : '--'}
-                    </p>
-                  </div>
-                </div>
+                  {(() => {
+                    const currentSnapshot = simulation.frames[currentFrame];
+                    const liveMaxDepth = currentSnapshot?.max_depth_m || 0;
+                    const liveCriticalCells = currentSnapshot?.critical_cells || 0;
+                    const liveAffectedPopulation = currentSnapshot?.affected_population || 0;
 
-                {simulation.summary.critical_wards && Object.keys(simulation.summary.critical_wards).length > 0 && (
-                  <div className="bg-red-950/30 p-3 rounded shadow-sm border border-red-900/50 mt-2">
-                    <p className="text-[10px] text-red-400 font-bold uppercase mb-2">Most Critical Wards</p>
-                    <div className="max-h-24 overflow-y-auto space-y-1">
-                      {Object.entries(simulation?.frames[currentFrame]?.critical_wards || {})
-                        .sort(([, a], [, b]) => b - a)
-                        .slice(0, 5) // Show top 5
-                        .map(([wardId, cells]) => {
-                          const wName = wardDict[wardId] || `Area ${wardId}`;
-                          return (
-                            <div key={wardId} onClick={() => handleWardClick(wardId)} className="flex justify-between items-center bg-slate-800/30 p-2 rounded border border-slate-700/30 cursor-pointer hover:bg-slate-700/50 transition-colors">
-                              <span className="text-sm text-slate-300 font-medium tracking-wide w-3/4 truncate pr-2" title={wName}>{wName}</span>
-                              <span className="text-xs font-bold text-red-200 bg-red-950/40 border border-red-900 px-2 py-0.5 rounded">{cells} cells</span>
+                    const tDanger = simulation.summary.time_to_first_critical_minutes;
+                    const currentMin = currentSnapshot?.time_minutes || 0;
+                    let displayTDanger = '--';
+                    if (tDanger !== null && tDanger !== undefined) {
+                      const diff = Math.round(tDanger - currentMin);
+                      if (diff <= 0) displayTDanger = '0m';
+                      else displayTDanger = `${diff}m`;
+                    }
+
+                    return (
+                      <div className="space-y-4">
+                        <div className="bg-slate-800/50 p-3 rounded shadow-sm border border-slate-700/50 transition-colors">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Peak Map Depth (Live)</p>
+                          <p className="text-2xl font-black text-cyan-400 leading-none">{liveMaxDepth.toFixed(2)}m</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-slate-800/50 p-3 rounded shadow-sm border border-slate-700/50 transition-colors">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Critical Cells (Live)</p>
+                            <p className="text-xl font-black text-red-500 leading-none">{liveCriticalCells}</p>
+                          </div>
+                          <div className={`bg-slate-800/50 p-3 rounded shadow-sm border border-slate-700/50 transition-colors ${displayTDanger === '0m' ? 'border-red-500/50 bg-red-950/30' : ''}`}>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Time to Danger</p>
+                            <p className={`text-xl font-black leading-none ${displayTDanger === '0m' ? 'text-red-400 animate-pulse' : 'text-indigo-300'}`}>
+                              {displayTDanger}
+                            </p>
+                          </div>
+                          <div className="bg-slate-800/50 p-3 rounded shadow-sm border border-slate-700/50 col-span-2 flex items-center justify-between transition-colors">
+                            <div>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Est. Affected Population (Live)</p>
+                              <p className="text-xl font-black text-amber-500 leading-none">
+                                {liveAffectedPopulation.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                              </p>
                             </div>
-                          )
-                        })}
+                            <div className="text-right text-[9px] text-slate-500 italic max-w-[100px] leading-tight">
+                              Based on warning-level flooding
+                            </div>
+                          </div>
+                        </div>
+
+                        {simulation.summary.critical_wards && Object.keys(simulation.summary.critical_wards).length > 0 && (
+                          <div className="bg-red-950/30 p-3 rounded shadow-sm border border-red-900/50 mt-2">
+                            <p className="text-[10px] text-red-400 font-bold uppercase mb-2">Most Critical Wards</p>
+                            <div className="max-h-24 overflow-y-auto space-y-1">
+                              {Object.entries(simulation?.frames[currentFrame]?.critical_wards || {})
+                                .sort(([, a], [, b]) => b - a)
+                                .slice(0, 5) // Show top 5
+                                .map(([wardId, cells]) => {
+                                  const wName = wardDict[wardId] || `Area ${wardId}`;
+                                  return (
+                                    <div key={wardId} onClick={() => handleWardClick(wardId)} className="flex justify-between items-center bg-slate-800/30 p-2 rounded border border-slate-700/30 cursor-pointer hover:bg-slate-700/50 transition-colors">
+                                      <span className="text-sm text-slate-300 font-medium tracking-wide w-3/4 truncate pr-2" title={wName}>{wName}</span>
+                                      <span className="text-xs font-bold text-red-200 bg-red-950/40 border border-red-900 px-2 py-0.5 rounded">{cells} cells</span>
+                                    </div>
+                                  )
+                                })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              <div className="p-5 flex-1">
+                <h3 className="text-md font-bold flex items-center mb-4 uppercase tracking-wide text-slate-300">
+                  <Target className="w-5 h-5 mr-2 text-cyan-500" /> Inspector
+                </h3>
+
+                {!cellStats ? (
+                  <div className="text-sm text-slate-500 text-center p-6 border-2 border-dashed border-slate-800 rounded-lg bg-slate-900/30">
+                    Click any cell on the map to inspect granular physics parameters.
+                  </div>
+                ) : (
+                  <div className="bg-slate-800/80 shadow border border-slate-700/50 rounded-lg overflow-hidden text-sm">
+                    <div className="bg-slate-950/80 text-white p-3 px-4 font-bold flex justify-between border-b border-slate-700/50">
+                      <span className="text-cyan-400">Cell [{cellStats.row}, {cellStats.col}]</span>
+                      {cellStats.isLake && <span className="bg-indigo-900/80 text-indigo-300 border border-indigo-700 border-opacity-50 text-[10px] px-2 py-0.5 rounded-full uppercase shadow-sm">Lake Basin</span>}
+                    </div>
+                    <div className="divide-y divide-slate-700/50">
+                      <div className="p-3 px-4 flex justify-between">
+                        <span className="text-slate-400 font-semibold">Elevation</span>
+                        <span className="font-mono text-slate-200">{cellStats.z.toFixed(2)}m</span>
+                      </div>
+                      <div className="p-3 px-4 flex justify-between">
+                        <span className="text-slate-400 font-semibold">Runoff Coeff</span>
+                        <span className="font-mono text-slate-200">{cellStats.runoff.toFixed(2)}</span>
+                      </div>
+                      <div className={`p-3 px-4 flex justify-between ${cellStats.depth > 0 ? 'bg-cyan-950/20' : ''}`}>
+                        <span className="text-slate-400 font-semibold">Current Depth</span>
+                        <span className="font-mono font-bold text-cyan-400">{cellStats.depth.toFixed(3)}m</span>
+                      </div>
+                      <div className="p-3 px-4 flex justify-between items-center">
+                        <span className="text-slate-400 font-semibold">Risk Status</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${cellStats.risk === "CRITICAL"
+                          ? "bg-red-500/20 text-red-300 border border-red-500/30"
+                          : cellStats.risk === "WARNING"
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                            : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                          }`}>
+                          {cellStats.risk}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
-            </div>
+            </>
           )}
-
-          <div className="p-5 flex-1">
-            <h3 className="text-md font-bold flex items-center mb-4 uppercase tracking-wide text-slate-300">
-              <Target className="w-5 h-5 mr-2 text-cyan-500" /> Inspector
-            </h3>
-
-            {!cellStats ? (
-              <div className="text-sm text-slate-500 text-center p-6 border-2 border-dashed border-slate-800 rounded-lg bg-slate-900/30">
-                Click any cell on the map to inspect granular physics parameters.
-              </div>
-            ) : (
-              <div className="bg-slate-800/80 shadow border border-slate-700/50 rounded-lg overflow-hidden text-sm">
-                <div className="bg-slate-950/80 text-white p-3 px-4 font-bold flex justify-between border-b border-slate-700/50">
-                  <span className="text-cyan-400">Cell [{cellStats.row}, {cellStats.col}]</span>
-                  {cellStats.isLake && <span className="bg-indigo-900/80 text-indigo-300 border border-indigo-700 border-opacity-50 text-[10px] px-2 py-0.5 rounded-full uppercase shadow-sm">Lake Basin</span>}
-                </div>
-                <div className="divide-y divide-slate-700/50">
-                  <div className="p-3 px-4 flex justify-between">
-                    <span className="text-slate-400 font-semibold">Elevation</span>
-                    <span className="font-mono text-slate-200">{cellStats.z.toFixed(2)}m</span>
-                  </div>
-                  <div className="p-3 px-4 flex justify-between">
-                    <span className="text-slate-400 font-semibold">Runoff Coeff</span>
-                    <span className="font-mono text-slate-200">{cellStats.runoff.toFixed(2)}</span>
-                  </div>
-                  <div className={`p-3 px-4 flex justify-between ${cellStats.depth > 0 ? 'bg-cyan-950/20' : ''}`}>
-                    <span className="text-slate-400 font-semibold">Current Depth</span>
-                    <span className="font-mono font-bold text-cyan-400">{cellStats.depth.toFixed(3)}m</span>
-                  </div>
-                  <div className="p-3 px-4 flex justify-between items-center">
-                    <span className="text-slate-400 font-semibold">Risk Status</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${cellStats.risk === "CRITICAL"
-                      ? "bg-red-500/20 text-red-300 border border-red-500/30"
-                      : cellStats.risk === "WARNING"
-                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                        : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                      }`}>
-                      {cellStats.risk}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
         </aside>
       </main>
-    </div>
+    </div >
   )
 }
 
