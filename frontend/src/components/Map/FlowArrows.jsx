@@ -51,11 +51,11 @@ export function FlowArrows({ bbox, currentFrame, visible }) {
         const ctx = canvas.getContext("2d");
 
         // Grid spacing for drawing arrows
-        const stepX = 10;
-        const stepY = 10;
+        const stepX = 25;
+        const stepY = 25;
 
         ctx.clearRect(0, 0, width, height);
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2.5; // Thicker lines for visibility
 
         for (let y = 0; y < height; y += stepY) {
             const sampleY = Math.min(rH - 1, Math.floor((y / height) * rH));
@@ -67,9 +67,9 @@ export function FlowArrows({ bbox, currentFrame, visible }) {
 
                 const magnitude = Math.sqrt(ux * ux + uy * uy);
 
-                if (magnitude > 0.005) { // Minimum velocity to draw an arrow
-                    // Scale arrow lengths visually
-                    const arrowLen = Math.min(15, 3 + magnitude * 1.5);
+                if (magnitude > 0.005) {
+                    // Make arrows distinctly long
+                    const arrowLen = Math.min(35, 12 + magnitude * 15);
                     const angle = Math.atan2(uy, ux);
 
                     const endX = x + Math.cos(angle) * arrowLen;
@@ -84,18 +84,20 @@ export function FlowArrows({ bbox, currentFrame, visible }) {
                     ctx.lineTo(endX, endY);
                     ctx.stroke();
 
-                    // Arrowhead
+                    // Form a large, unmistakable triangular arrowhead
+                    const wingLen = Math.min(12, Math.max(8, arrowLen * 0.4));
+
                     ctx.beginPath();
                     ctx.moveTo(endX, endY);
-                    ctx.lineTo(endX - 4 * Math.cos(angle - Math.PI / 6), endY - 4 * Math.sin(angle - Math.PI / 6));
-                    ctx.lineTo(endX - 4 * Math.cos(angle + Math.PI / 6), endY - 4 * Math.sin(angle + Math.PI / 6));
+                    ctx.lineTo(endX - wingLen * Math.cos(angle - Math.PI / 6), endY - wingLen * Math.sin(angle - Math.PI / 6));
+                    ctx.lineTo(endX - wingLen * Math.cos(angle + Math.PI / 6), endY - wingLen * Math.sin(angle + Math.PI / 6));
                     ctx.closePath();
                     ctx.fill();
                 } else if (magnitude > 0.0001) {
                     // Static / very slow fluid dot
                     ctx.fillStyle = "rgba(14, 165, 233, 0.4)";
                     ctx.beginPath();
-                    ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
+                    ctx.arc(x, y, 2.5, 0, 2 * Math.PI);
                     ctx.fill();
                 }
             }
